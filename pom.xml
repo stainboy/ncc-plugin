@@ -6,11 +6,11 @@
     <version>1.536</version>
   </parent>
 
-  <artifactId>certificate-auth-plugin</artifactId>
+  <artifactId>certificate-authentication-plugin</artifactId>
   <version>1.0-SNAPSHOT</version>
   <packaging>hpi</packaging>
 
-  <url>http://wiki.jenkins-ci.org/display/JENKINS/Certificate+Auth+Plugin</url>
+  <url>http://wiki.jenkins-ci.org/display/JENKINS/Certificate+Authentication+Plugin</url>
 
   <developers>
     <developer>
