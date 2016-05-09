@@ -96,15 +96,13 @@ public class CertificateSecurityRealm extends SecurityRealm {
                     String user = m.group(1);
                     user = user.toLowerCase();
 
-
                     GrantedAuthority[] authorities = new GrantedAuthority[]{
                             SecurityRealm.AUTHENTICATED_AUTHORITY
                     };
                     a = new UsernamePasswordAuthenticationToken(user, "", authorities);
-                    SecurityContextHolder.getContext().setAuthentication(a);
                 }
 
-
+                SecurityContextHolder.getContext().setAuthentication(a);
                 chain.doFilter(request, response);
             }
 
