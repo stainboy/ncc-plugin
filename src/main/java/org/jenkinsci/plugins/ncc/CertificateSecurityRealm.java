@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package org.jenkinsci.plugins.certificate_auth;
+package org.jenkinsci.plugins.ncc;
 
 import hudson.Extension;
 import hudson.model.Descriptor;
@@ -30,7 +30,6 @@ import hudson.security.SecurityRealm;
 import org.acegisecurity.Authentication;
 import org.acegisecurity.AuthenticationManager;
 import org.acegisecurity.GrantedAuthority;
-import org.acegisecurity.GrantedAuthorityImpl;
 import org.acegisecurity.context.SecurityContextHolder;
 import org.acegisecurity.providers.UsernamePasswordAuthenticationToken;
 import org.acegisecurity.userdetails.UserDetails;
@@ -39,39 +38,34 @@ import org.acegisecurity.userdetails.UsernameNotFoundException;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.springframework.dao.DataAccessException;
 
-import java.security.cert.X509Certificate;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
+import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * @author David Strauss
- * @author Kohsuke Kawaguchi
+ * @author Miles Chen
  */
 public class CertificateSecurityRealm extends SecurityRealm {
-    private final String userField;
-    private final String groupField;
+    private final String sdnKey;
+    private final String sdnStrip;
 
     @DataBoundConstructor
-    public CertificateSecurityRealm(String userField, String groupField) {
-        this.userField = userField;
-        this.groupField = groupField;
+    public CertificateSecurityRealm(String sdnKey, String sdnStrip) {
+        this.sdnKey = sdnKey;
+        this.sdnStrip = sdnStrip;
     }
 
     /**
      * Field of the DN to look at.
      */
-    public String getUserField() {
-        return this.userField;
+    public String getSdnKey() {
+        return this.sdnKey;
     }
 
-    public String getGroupField() {
-        return this.groupField;
+    public String getSdnStrip() {
+        return this.sdnStrip;
     }
 
     @Override
@@ -83,34 +77,35 @@ public class CertificateSecurityRealm extends SecurityRealm {
     public Filter createFilter(FilterConfig filterConfig) {
         return new Filter() {
             public void init(FilterConfig filterConfig) throws ServletException {
+
             }
 
             public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-                HttpServletRequest r = (HttpServletRequest) request;
-                final X509Certificate[] certChain = (X509Certificate[])
-                  request.getAttribute("javax.servlet.request.X509Certificate");
-
                 Authentication a;
-                if (certChain == null || certChain[0] == null) {
+                HttpServletRequest r = (HttpServletRequest) request;
+                String sdn = r.getHeader(getSdnKey());
+                String rule = getSdnStrip();
+
+                if (sdn == null) {
                     a = Hudson.ANONYMOUS;
                 } else {
 
-                    final String dn = certChain[0].getSubjectDN().getName();
+                    Pattern p = Pattern.compile(rule);
+                    Matcher m = p.matcher(sdn);
+                    m.find();
+                    String user = m.group(1);
+                    user = user.toLowerCase();
 
-                    final String username = dn.split(getUserField() + "=")[1].split(",")[0];
-                    final String group = dn.split(getGroupField() + "=")[1].split(",")[0];
 
-                    GrantedAuthority[] authorities = new GrantedAuthority[] {
-                            SecurityRealm.AUTHENTICATED_AUTHORITY,
-                            new GrantedAuthorityImpl(group)
-                        };
-
-                    a = new UsernamePasswordAuthenticationToken(username, "", authorities);
+                    GrantedAuthority[] authorities = new GrantedAuthority[]{
+                            SecurityRealm.AUTHENTICATED_AUTHORITY
+                    };
+                    a = new UsernamePasswordAuthenticationToken(user, "", authorities);
+                    SecurityContextHolder.getContext().setAuthentication(a);
                 }
 
-                SecurityContextHolder.getContext().setAuthentication(a);
 
-                chain.doFilter(request,response);
+                chain.doFilter(request, response);
             }
 
             public void destroy() {
